@@ -3,6 +3,7 @@ import streamlit as st
 import imutils
 import numpy as np
 import skimage
+import time
 
 from PIL import Image
 from transform import four_point_transform
@@ -127,10 +128,20 @@ def main():
         orig = img_array.copy()
         image = imutils.resize(img_array, height = 500)
         st.subheader("STEP 1: Thresholding")
+        with st.spinner('Wait for Image to Load'):
+            time.sleep(2)
+        st.success('Image Loaded!')
         st.image(image, caption='Original Image',width=300)
+    
 
     submit = st.checkbox('Apply Thresholding Filters')
     if submit:        
+        my_bar = st.progress(0)
+
+        for percent_complete in range(100):
+            time.sleep(0.01)
+            my_bar.progress(percent_complete + 1)
+        
         img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         ret,th1 = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
@@ -150,17 +161,23 @@ def main():
     choice = st.selectbox('Which Filter Would You like to Choose?', ('','Binarization Filter','Adaptive Gaussian Binarization Filter','Otsu Binarization Filter'))
     st.write('You Selected: ', choice)
 
-    if choice == 'Binarization Filter':
-        cnts = cv2.findContours(th1, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    
-    elif choice == 'Adaptive Gaussian Binarization Filter':
-        cnts = cv2.findContours(th2, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
-    elif choice == 'Otsu Binarization Filter':
-        cnts = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    try:
+        if choice == 'Binarization Filter':
+            cnts = cv2.findContours(th1, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
-    else:
+        elif choice == 'Adaptive Gaussian Binarization Filter':
+            cnts = cv2.findContours(th2, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        elif choice == 'Otsu Binarization Filter':
+            cnts = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            
+        else:
+            pass
+    except UnboundLocalError:
         pass
+    else:
+        if choice:
+            st.error('Edges Could not be found Select Different Thresholding Filter!')
 
     try:
         screen_count = find_cnts(cnts)
@@ -193,14 +210,24 @@ def main():
             st.write('You Selected: ', SelectNoise, 'noise')
             if SelectNoise:
                 noise = skimage.util.random_noise(warped, mode=SelectNoise)
+                my_bar = st.progress(0)
+                for percent_complete in range(100):
+                    time.sleep(0.01)
+                    my_bar.progress(percent_complete + 1)
                 st.image(noise)
-                if SelectNoise:
-                    st.success('Noise Succesfully Applied!')
+                st.success('Noise Succesfully Applied!')
                 SelectedFilter = Filter_Selector()
                 Filtered_Img = Filter_Function(noise, SelectedFilter)
         else:
             SelectedFilter = Filter_Selector()
             Filtered_Img = Filter_Function(warped, SelectedFilter)
+        
+        if SelectedFilter:
+            my_bar = st.progress(0)
+
+            for percent_complete in range(100):
+                time.sleep(0.01)
+                my_bar.progress(percent_complete + 1)
 
         st.image(Filtered_Img, caption='Selected Filters are applied to the Image')
         if SelectedFilter:
