@@ -129,7 +129,7 @@ def main():
         image = imutils.resize(img_array, height = 500)
         st.subheader("STEP 1: Thresholding")
         with st.spinner('Wait for Image to Load'):
-            time.sleep(2)
+            time.sleep(1)
         st.success('Image Loaded!')
         st.image(image, caption='Original Image',width=300)
     
@@ -177,7 +177,8 @@ def main():
         pass
     else:
         if choice:
-            st.error('Edges Could not be found Select Different Thresholding Filter!')
+            if choice=='':
+                st.error('Edges Could not be found Select Different Thresholding Filter!')
 
     try:
         screen_count = find_cnts(cnts)
@@ -234,8 +235,9 @@ def main():
                 st.success('Filter Succesfully Applied!')
     except UnboundLocalError:
         pass
-
-
+    except RuntimeError:
+        if err:
+            st.error('Please Select Different Filter')
 
 
 if __name__ == "__main__":
