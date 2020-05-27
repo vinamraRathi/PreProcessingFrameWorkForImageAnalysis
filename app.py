@@ -73,11 +73,17 @@ def noisy(noise_typ,image):
       return noisy
 
 def Filter_Selector():
-    SelectedFilter = st.multiselect('Choose a Filter or more',('','Median Filter','Gaussian Blur','Weiner Filter','Bilateral Filter','Unsharp Masking'))
+    SelectedFilter = st.multiselect('Choose a Filter or more',('Median Filter','Gaussian Blur','Weiner Filter','Bilateral Filter','Unsharp Masking'))
+    st.markdown("""
+    <style> label, .st-d8{
+        font-size:2rem!important;
+    } 
+    </style>
+    """,unsafe_allow_html=True)
     return SelectedFilter
 
 def Filter_Function(warped, SelectedFilter):
-    st.write(SelectedFilter, 'len', len(SelectedFilter))
+    st.write(SelectedFilter)
     Output_Filter= warped
     i=0
     while i != len(SelectedFilter):
@@ -91,9 +97,9 @@ def Filter_Function(warped, SelectedFilter):
             
         elif SelectedFilter[i] == 'Weiner Filter':
             psf = np.ones((5, 5)) / 25
-            img = convolve2d(Output_Filter, psf, 'same')
-            img += 0.1 * img.std() * np.random.standard_normal(img.shape)
-            Output_Filter = skimage.restoration.wiener(img,psf,1100)
+            Output_Filter = convolve2d(Output_Filter, psf, 'same')
+            Output_Filter += 0.1 * Output_Filter.std() * np.random.standard_normal(Output_Filter.shape)
+            Output_Filter = skimage.restoration.wiener(Output_Filter,psf,0.1)
             i+=1
         
         elif SelectedFilter[i] == 'Bilateral Filter':
@@ -104,8 +110,8 @@ def Filter_Function(warped, SelectedFilter):
             Output_Filter = skimage.filters.unsharp_mask(Output_Filter)
             i+=1
         
-        elif SelectedFilter[i] == '':
-            st.error('Please select atleast one Filter')
+        else:
+            pass
     return Output_Filter
 
 def main():
@@ -138,6 +144,9 @@ def main():
         ret3, th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         st.image(th3, caption='Otsu Binarization Filter', width=300)
 
+        if submit:
+            st.success('Thresholding Filter Succesfully Applied!')
+
     choice = st.selectbox('Which Filter Would You like to Choose?', ('','Binarization Filter','Adaptive Gaussian Binarization Filter','Otsu Binarization Filter'))
     st.write('You Selected: ', choice)
 
@@ -151,41 +160,56 @@ def main():
         cnts = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
     else:
-        error = st.error('Please Choose a Valid Filter')
+        pass
 
-    screen_count = find_cnts(cnts)
-    
-    contors = cv2.drawContours(image, [screen_count], -1, (0, 255, 0), 4)
-    st.subheader("STEP 2 : Find Contours Of Paper")
-    st.image(contors, caption='Outlined Image')
+    try:
+        screen_count = find_cnts(cnts)
+        contors = cv2.drawContours(image, [screen_count], -1, (0, 255, 0), 4)
+        st.subheader("STEP 2 : Find Contours Of Paper")
+        st.image(contors, caption='Outlined Image')
+        if choice:
+            st.success('Edges of the Image Succesfully Found!')
+        warped = four_point_transform(orig, screen_count.reshape(4, 2) * ratio)
+        # convert the warped image to grayscale, then threshold it
+        # to give it that 'black and white' paper effect
+        warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        T = threshold_local(warped, 11, offset = 10, method = "gaussian")
+        warped = (warped > T).astype("uint8") * 255
+        # apply the four point transform to obtain a top-down
+        # # view of the original image
 
-    # apply the four point transform to obtain a top-down
-    # # view of the original image
-    warped = four_point_transform(orig, screen_count.reshape(4, 2) * ratio)
-    # convert the warped image to grayscale, then threshold it
-    # # to give it that 'black and white' paper effect
-    warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    T = threshold_local(warped, 11, offset = 10, method = "gaussian")
-    warped = (warped > T).astype("uint8") * 255
-
-    st.subheader("STEP 3: Apply perspective transform")
-    st.image(warped, caption='Applying Perspective Transform to the Image')
-
-    Add_Noise = st.checkbox('Do you want to add Noise')
-    if Add_Noise:
-        SelectNoise = st.selectbox('Choose Your type of Noise to add', ('None','s&p','gaussian','poisson','speckle'))
-        st.write('You Selected: ', SelectNoise)
-        if SelectNoise:
-            noise = skimage.util.random_noise(warped, mode=SelectNoise)
-            st.image(noise)
-            st.write(SelectNoise, ' Noise is Added')
+        st.subheader("STEP 3: Apply perspective transform")
+        st.image(warped, caption='Applying Perspective Transform to the Image')
+        if choice:
+            st.success('Perspective Transform Applied!')
+        Add_Noise = st.checkbox('Do you want to add Noise')
+        st.markdown("""
+        <style> {
+            font-size:2rem!important;
+            } </style>
+            """,unsafe_allow_html=True)
+        if Add_Noise:
+            SelectNoise = st.selectbox('Choose Your type of Noise to add', ('','s&p','gaussian','poisson','speckle'))
+            st.write('You Selected: ', SelectNoise, 'noise')
+            if SelectNoise:
+                noise = skimage.util.random_noise(warped, mode=SelectNoise)
+                st.image(noise)
+                if SelectNoise:
+                    st.success('Noise Succesfully Applied!')
+                SelectedFilter = Filter_Selector()
+                Filtered_Img = Filter_Function(noise, SelectedFilter)
+        else:
             SelectedFilter = Filter_Selector()
-            Filtered_Img = Filter_Function(noise, SelectedFilter)
-    else:
-        SelectedFilter = Filter_Selector()
-        Filtered_Img = Filter_Function(warped, SelectedFilter)
+            Filtered_Img = Filter_Function(warped, SelectedFilter)
 
-    st.image(Filtered_Img, caption='Selected Filters are applied to the Image')
+        st.image(Filtered_Img, caption='Selected Filters are applied to the Image')
+        if SelectedFilter:
+                st.success('Filter Succesfully Applied!')
+    except UnboundLocalError:
+        pass
+
+
+
 
 if __name__ == "__main__":
     main()
